@@ -233,6 +233,23 @@ async def accounts_new(request):
     return web.Response(status=201)
 
 
+async def accounts_likes_add(request):
+    try:
+        body = await request.json()
+        async with app['pool'].acquire() as conn:
+            await conn.executemany(
+                """INSERT INTO tbl_likes
+                (account_id, liked_account_id, ts)
+                VALUES ($1, $2, $3);
+                """,
+                ((i["liker"], i["likee"], i["ts"]) for i in body["likes"])
+            )
+    except (KeyError, TypeError, asyncpg.exceptions.DataError):
+        return web.Response(status=400)
+
+    return web.Response(status=202)
+
+
 async def init_app():
     app = web.Application()
     app['pool'] = await asyncpg.create_pool(host='localhost',
@@ -242,9 +259,11 @@ async def init_app():
                                             database='pairer',
                                             ssl=False)
     app.add_routes([web.post('/accounts/new/', accounts_new)])
+    app.add_routes([web.post('/accounts/likes/', accounts_likes_add)])
     app.add_routes([web.post('/accounts/{id}/', accounts_post)])
 
     return app
+
 
 loop = asyncio.get_event_loop()
 app = loop.run_until_complete(init_app())
