@@ -37,7 +37,101 @@ async def accounts_get(request):
 
 
 async def accounts_post(request):
-    pass
+    account_id = int(request.match_info['id'])
+    conn = await app['pool'].acquire()
+    if not await conn.fetchval("""select exists(select 1 from tbl_accounts where id = $1)""", account_id):
+        return web.Response(status=404)
+    body = await request.json()
+    columns, values = io.StringIO(), io.StringIO()
+    interests, likes = None, None
+    i = 1
+    for k, v in body.items():
+        # DELETE_ME: Поле id никогда не содержится среди обновляемых полей
+        # if k == "id":
+        #     continue
+        if k == "interests":
+            interests = v
+            continue
+        # DELETE_ME: лайки обновляются отдельным урлом
+        # elif k == "likes":
+        #     likes = v
+        #     continue
+        elif k == "status":
+            v = STATUS_MAP[v]
+        elif k == "birth":
+            if columns.tell():
+                columns.write(",")
+            columns.write("birth_year")
+
+            parsed_date = datetime.utcfromtimestamp(v)
+
+            if values.tell():
+                values.write(",")
+            values.write(str(parsed_date.year))
+        # TODO: check "но в теле запроса переданы неизвестные поля или типы значений неверны, то ожидается код 400"
+
+        if columns.tell():
+            columns.write(",")
+        columns.write(k)
+
+        if values.tell():
+            values.write(",")
+        if isinstance(v, str):
+            values.write("'")
+            values.write(v)
+            values.write("'")
+        else:
+            values.write(str(v))
+
+        i += 1
+
+    columns.seek(0)
+    values.seek(0)
+
+    async with conn.transaction():
+        await conn.fetchval(
+            """UPDATE tbl_accounts SET
+            ({}) = ({})
+            WHERE id = {};
+            """.format(columns.read(), values.read(), account_id)
+        )
+
+        if interests:
+            res = await conn.fetch(
+                """
+                WITH inserted_interests AS (
+                    INSERT INTO tbl_interests (descr)
+                    (
+                        SELECT 
+                            inp.descr
+                        FROM
+                            UNNEST($1::tbl_interests[]) AS inp
+                    )
+                    ON CONFLICT ON CONSTRAINT tbl_interests_descr_key DO NOTHING
+                    RETURNING id
+                )
+                SELECT id
+                FROM inserted_interests
+                UNION
+                SELECT id
+                FROM tbl_interests
+                WHERE descr = any($2::varchar[]);
+                """,
+                tuple((None, i,) for i in interests),
+                tuple(i for i in interests)
+            )
+            interests_ids = ((account_id, record["id"]) for record in res)
+            await conn.execute(
+                """DELETE FROM accounts_interests
+                WHERE account_id = $1""",
+                account_id)
+            await conn.executemany(
+                """INSERT INTO accounts_interests (account_id, interest_id)
+                VALUES ($1, $2)
+                """,
+                interests_ids)
+
+    return web.Response(status=202)
 
 
 async def accounts_new(request):
@@ -148,6 +242,7 @@ async def init_app():
                                             database='pairer',
                                             ssl=False)
     app.add_routes([web.post('/accounts/new/', accounts_new)])
+    app.add_routes([web.post('/accounts/{id}/', accounts_post)])
 
     return app
 
