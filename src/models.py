@@ -9,6 +9,7 @@ class Account(Base):
     __tablename__ = 'tbl_accounts'
     id = Column(Integer, primary_key=True)
     email = Column(Unicode(100), nullable=False)
+    email_domain = Column(Unicode(20), nullable=False)
     fname = Column(Unicode(50), nullable=True)
     sname = Column(Unicode(50), nullable=True)
     phone = Column(Unicode(16), nullable=True)

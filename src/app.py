@@ -20,20 +20,151 @@ ALLOWED_QUERY_FIELDS = {
     "likes_contains",
     "premium_now", "premium_null",
 }
-
-SPECIAL_ACCOUNT_FIELDS = {
-    "interests", "likes"
+QUERY_TO_FIELD_DICT = {
+    "sex_eq": "sex",
+    "email_domain": "email_domain",
+    "email_lt": "email", "email_gt": "email",
+    "status_eq": "status",
+    "status_neq": "status",
+    "fname_eq": "fname", "fname_any": "fname", "fname_null": "fname",
+    "sname_eq": "sname", "sname_starts": "sname", "sname_null": "sname",
+    "phone_code": "phone", "phone_null": "phone",
+    "country_eq": "country", "country_null": "country",
+    "city_eq": "city", "city_any": "city", "city_null": "city",
+    "birth_year": "birth_year", "birth_lt": "birth", "birth_gt": "birth",
+    # These fields have totally custom logic and probably won't be used through this dict
+    # "interests_contains": "interests", "interests_any": "interests",
+    # "likes_contains": "likes",
+    "premium_now": "premium", "premium_null": "premium",
 }
+
+EQ_QUERY_FIELDS = {"sex_eq", "status_eq", "fname_eq", "sname_eq", "country_eq", "city_eq",
+                   "phone_code", "email_domain", "birth_year"}
+ISNULL_QUERY_FIELDS = {"fname_null", "sname_null", "phone_null", "country_null", "city_null",
+                       "premium_null"}
+LT_QUERY_FIELDS = {"email_lt", "birth_lt"}
+GT_QUERY_FIELDS = {"email_gt", "birth_gt"}
+SIMPLE_ANY_QUERY_FIELDS = {"fname_any", "city_any"}
 
 STATUS_MAP = {"свободны": 0, "заняты": 1, "всё сложно": 2}
 
 
 async def accounts_filter(request):
-    pass
+    q = """
+    SELECT id, email {more_fields}
+    FROM tbl_accounts
+    {}
+    WHERE 1=1 {more_filters}
+    ORDER BY id DESC
+    """
+    more_fields, more_filters = io.StringIO(), io.StringIO()
+    q_params = []
+    for k, v in request.query.items():
+        if k not in ALLOWED_QUERY_FIELDS:
+            return web.Response(status=400)
+        elif k == "status":
+            v = STATUS_MAP[v]
 
+        more_fields.write(",")
+        more_fields.write(k)
 
-async def accounts_get(request):
-    pass
+        if k in EQ_QUERY_FIELDS:
+            more_filters.write(" AND ")
+            more_filters.write(QUERY_TO_FIELD_DICT[k])
+
+            more_filters.write("=")
+            if isinstance(v, str):
+                more_filters.write("'")
+                more_filters.write(v)
+                more_filters.write("'")
+            else:
+                more_filters.write(str(v))
+        elif k in ISNULL_QUERY_FIELDS:
+            more_filters.write(" AND ")
+            more_filters.write(QUERY_TO_FIELD_DICT[k])
+
+            more_filters.write(" IS NULL")
+        elif k in LT_QUERY_FIELDS:
+            more_filters.write(" AND ")
+            more_filters.write(QUERY_TO_FIELD_DICT[k])
+
+            more_filters.write("<")
+            if isinstance(v, str):
+                more_filters.write("'")
+                more_filters.write(v)
+                more_filters.write("'")
+            else:
+                more_filters.write(str(v))
+        elif k in GT_QUERY_FIELDS:
+            more_filters.write(" AND ")
+            more_filters.write(QUERY_TO_FIELD_DICT[k])
+
+            more_filters.write(">")
+            if isinstance(v, str):
+                more_filters.write("'")
+                more_filters.write(v)
+                more_filters.write("'")
+            else:
+                more_filters.write(str(v))
+        elif k in SIMPLE_ANY_QUERY_FIELDS:
+            more_filters.write(" AND ")
+            more_filters.write(QUERY_TO_FIELD_DICT[k])
+
+            more_filters.write("=any($")
+            more_filters.write(str(len(q_params) + 1))
+            more_filters.write("::varchar[])")
+            q_params.append(v)
+        elif k == "status_neq":
+            more_filters.write(" AND ")
+            more_filters.write(QUERY_TO_FIELD_DICT[k])
+
+            more_filters.write("<>")
+            if isinstance(v, str):
+                more_filters.write("'")
+                more_filters.write(v)
+                more_filters.write("'")
+            else:
+                more_filters.write(str(v))
+        elif k == "premium_now":
+            more_filters.write(" AND ")
+            more_filters.write("premium_start IS NOT NULL AND premium_end IS NOT NULL AND $")
+            more_filters.write(str(len(q_params) + 1))
+            more_filters.write(" BETWEEN premium_start AND premium_end")
+            q_params.append(v)
+        elif k == "sname_starts":
+            more_filters.write(" AND sname LIKE ")
+            more_filters.write("'")
+            more_filters.write(v)
+            more_filters.write("%'")
+        elif k == "likes_contains":
+            v = v.split(",")
+            more_filters.write("""
+             AND id = ANY(
+                SELECT account_id
+                FROM 
+                (
+                  SELECT DISTINCT account_id, liked_account_id 
+                  FROM tbl_likes
+                  WHERE liked_account_id = ANY($""")
+            more_filters.write(str(len(q_params) + 1))
+            q_params.append(v)
+            more_filters.write("""
+                ::integer[])
+                ) AS who_liked
+                GROUP BY account_id
+                HAVING COUNT(liked_account_id) = $""")
+            more_filters.write(str(len(q_params) + 1))
+            q_params.append(len(v))
+            ")"
+        elif k == "interests_any":
+            more_filters.write("""
+             AND id = ANY(
+                
+            )
+            """)
+
+        # {'interests_contains', 'interests_any'}
+
 
 
 async def accounts_post(request):
@@ -264,7 +395,7 @@ async def init_app():
 
     return app
 
-
-loop = asyncio.get_event_loop()
-app = loop.run_until_complete(init_app())
-web.run_app(app, port=28080)
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    app = loop.run_until_complete(init_app())
+    web.run_app(app, port=28080)
