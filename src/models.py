@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Unicode, TIMESTAMP, SmallInteger, Table, ForeignKey
+from sqlalchemy import Column, Integer, Unicode, SmallInteger, Table, Boolean, ARRAY, VARCHAR, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -22,14 +22,8 @@ class Account(Base):
     status = Column(SmallInteger())
     premium_start = Column(Integer(), nullable=True)
     premium_end = Column(Integer(), nullable=True)
-    # interests = relationship("Interest", secondary="accounts_interests")
-    # likes = relationship("Like", foreign_keys=["account_id"])
-
-
-class Interest(Base):
-    __tablename__ = 'tbl_interests'
-    id = Column(Integer, primary_key=True)
-    descr = Column(Unicode(100), nullable=False, unique=True)
+    has_premium = Column(Boolean(create_constraint=False), nullable=True)
+    interests = Column(ARRAY(VARCHAR(100)))
 
 
 class Like(Base):
@@ -37,11 +31,8 @@ class Like(Base):
     id = Column(Integer, primary_key=True)
     account_id = Column(Integer)
     liked_account_id = Column(Integer)
-    ts = Column(Integer())
-
-
-accounts_interests = Table(
-    'accounts_interests', Base.metadata,
-    Column('account_id', Integer),
-    Column('interest_id', Integer),
-)
+    avg_ts = Column(Integer())
+    likes_count = Column(SmallInteger())
+    __table_args__ = (
+        UniqueConstraint('account_id', 'liked_account_id', name="constr_likes_composed_key_unique"),
+    )

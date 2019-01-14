@@ -1,5 +1,6 @@
 import asyncio
 import io
+import os
 from datetime import datetime
 
 import asyncpg
@@ -43,21 +44,35 @@ async def accounts_post(request):
         return web.Response(status=404)
     body = await request.json()
     columns, values = io.StringIO(), io.StringIO()
-    interests, likes = None, None
+    likes = None
     i = 1
     for k, v in body.items():
-        # DELETE_ME: Поле id никогда не содержится среди обновляемых полей
-        # if k == "id":
-        #     continue
-        if k == "interests":
-            interests = v
-            continue
-        # DELETE_ME: лайки обновляются отдельным урлом
-        # elif k == "likes":
-        #     likes = v
-        #     continue
+        if k == "id":
+            return web.Response(status=400)
         elif k == "status":
             v = STATUS_MAP[v]
+        elif k == "likes":
+            likes = v
+            continue
+        elif k == "interests":
+            if columns.tell():
+                columns.write(",")
+            columns.write("interests")
+
+            if values.tell():
+                values.write(",")
+
+            if v:
+                values.write("'{")
+                values.write(
+                    ",".join('"{}"'.format(interest) for interest in v)
+                )
+                values.write("}'")
+            else:
+                values.write("NULL")
+
+            i += 1
+            continue
         elif k == "birth":
             if columns.tell():
                 columns.write(",")
@@ -68,6 +83,21 @@ async def accounts_post(request):
             if values.tell():
                 values.write(",")
             values.write(str(parsed_date.year))
+        elif k == "premium":
+            if columns.tell():
+                columns.write(",")
+            columns.write("premium_start,premium_end,has_premium")
+
+            if values.tell():
+                values.write(",")
+            columns.write(str(v["premium_start"]))
+            columns.write(",")
+            columns.write(str(v["premium_end"]))
+            columns.write(",")
+            columns.write("1" if v["premium_start"] <= app['date'] <= v["premium_end"] else "0")
+
+            i += 1
+            continue
         # TODO: check "но в теле запроса переданы неизвестные поля или типы значений неверны, то ожидается код 400"
 
         if columns.tell():
@@ -96,40 +126,22 @@ async def accounts_post(request):
             """.format(columns.read(), values.read(), account_id)
         )
 
-        if interests:
-            res = await conn.fetch(
-                """
-                WITH inserted_interests AS (
-                    INSERT INTO tbl_interests (descr)
-                    (
-                        SELECT 
-                            inp.descr
-                        FROM
-                            UNNEST($1::tbl_interests[]) AS inp
-                    )
-                    ON CONFLICT ON CONSTRAINT tbl_interests_descr_key DO NOTHING
-                    RETURNING id
+        if likes is not None:
+            await conn.execute("""
+            DELETE FROM tbl_likes
+            WHERE account_id = $1
+            """, account_id)
+            if likes:
+                await conn.executemany(
+                    """INSERT INTO tbl_likes
+                    (account_id, liked_account_id, avg_ts, likes_count)
+                    VALUES ($1, $2, $3, 1)
+                    ON CONFLICT ON CONSTRAINT constr_likes_composed_key_unique DO UPDATE
+                        SET avg_ts = (cast(1 as bigint) * tbl_likes.avg_ts * tbl_likes.likes_count + $3) / (tbl_likes.likes_count + 1),
+                            likes_count = tbl_likes.likes_count + 1;
+                    """,
+                    ((account_id, i["id"], i["ts"]) for i in likes)
                 )
-                SELECT id
-                FROM inserted_interests
-                UNION
-                SELECT id
-                FROM tbl_interests
-                WHERE descr = any($2::varchar[]);
-                """,
-                tuple((None, i,) for i in interests),
-                tuple(i for i in interests)
-            )
-            interests_ids = ((account_id, record["id"]) for record in res)
-            await conn.execute(
-                """DELETE FROM accounts_interests
-                WHERE account_id = $1""",
-                account_id)
-            await conn.executemany(
-                """INSERT INTO accounts_interests (account_id, interest_id)
-                VALUES ($1, $2)
-                """,
-                interests_ids)
 
     return web.Response(status=202)
 
@@ -143,7 +155,20 @@ async def accounts_new(request):
         if k == "id":
             continue
         elif k == "interests":
-            interests = v
+            if v:
+                if columns.tell():
+                    columns.write(",")
+                columns.write("interests")
+
+                if values.tell():
+                    values.write(",")
+                values.write("'{")
+                values.write(
+                    ",".join('"{}"'.format(interest) for interest in v)
+                )
+                values.write("}'")
+
+            i += 1
             continue
         elif k == "likes":
             likes = v
@@ -160,6 +185,21 @@ async def accounts_new(request):
             if values.tell():
                 values.write(",")
             values.write(str(parsed_date.year))
+        elif k == "premium":
+            if columns.tell():
+                columns.write(",")
+            columns.write("premium_start,premium_end,has_premium")
+
+            if values.tell():
+                values.write(",")
+            columns.write(str(v["premium_start"]))
+            columns.write(",")
+            columns.write(str(v["premium_end"]))
+            columns.write(",")
+            columns.write("1" if v["premium_start"] <= app['date'] <= v["premium_end"] else "0")
+
+            i += 1
+            continue
 
         if columns.tell():
             columns.write(",")
@@ -189,43 +229,14 @@ async def accounts_new(request):
                 """.format(columns.read(), values.read())
             )
 
-            if interests:
-                res = await conn.fetch(
-                    """
-                    WITH inserted_interests AS (
-                        INSERT INTO tbl_interests (descr)
-                        (
-                            SELECT 
-                                inp.descr
-                            FROM
-                                UNNEST($1::tbl_interests[]) AS inp
-                        )
-                        ON CONFLICT ON CONSTRAINT tbl_interests_descr_key DO NOTHING
-                        RETURNING id
-                    )
-                    SELECT id
-                    FROM inserted_interests
-                    UNION
-                    SELECT id
-                    FROM tbl_interests
-                    WHERE descr = any($2::varchar[]);
-                    """,
-                    tuple((None, i,) for i in interests),
-                    tuple(i for i in interests)
-                )
-                interests_ids = ((account_id, record["id"]) for record in res)
-                await conn.executemany(
-                    """INSERT INTO accounts_interests (account_id, interest_id)
-                    VALUES ($1, $2)
-                    """,
-                    interests_ids,
-                )
-
             if likes:
                 await conn.executemany(
                     """INSERT INTO tbl_likes
-                    (account_id, liked_account_id, ts)
-                    VALUES ($1, $2, $3);
+                    (account_id, liked_account_id, avg_ts, likes_count)
+                    VALUES ($1, $2, $3, 1)
+                    ON CONFLICT ON CONSTRAINT constr_likes_composed_key_unique DO UPDATE
+                        SET avg_ts = (cast(1 as bigint) * tbl_likes.avg_ts * tbl_likes.likes_count + $3) / (tbl_likes.likes_count + 1),
+                            likes_count = tbl_likes.likes_count + 1;
                     """,
                     ((account_id, i["id"], i["ts"]) for i in likes)
                 )
@@ -252,6 +263,12 @@ async def accounts_likes_add(request):
 
 async def init_app():
     app = web.Application()
+    app['debug'] = os.environ.get("DEBUG") in {"1", 1, True, "True"}
+    if app['debug']:
+        app['date'] = 1545613207.0
+    else:
+        with open("/tmp/data/options.txt") as f:
+            app['date'] = float(f.readline(1))
     app['pool'] = await asyncpg.create_pool(host='localhost',
                                             port=15432,
                                             user='postgres',
