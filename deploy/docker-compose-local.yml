@@ -1,10 +1,10 @@
 version: "3.3"
 services:
-  db:
-    image: postgres:11.1
+  app:
+    image: stor.highloadcup.ru/accounts/cute_bison
     ports:
-      - 15432:5432
+      - 28080:80
     environment:
       POSTGRES_PASSWORD: password
     volumes:
-      - ./data:/var/lib/postgresql/data
+      - /Users/mlychagin/dev/mhc_2018/hlcupdocs/data/test_accounts_241218/data:/tmp/data

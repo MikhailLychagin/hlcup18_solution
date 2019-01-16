@@ -21,9 +21,10 @@ class Account(Base):
     joined = Column(Integer())
     status = Column(SmallInteger())
     premium_start = Column(Integer(), nullable=True)
-    premium_end = Column(Integer(), nullable=True)
+    premium_finish = Column(Integer(), nullable=True)
     has_premium = Column(Boolean(create_constraint=False), nullable=True)
     interests = Column(ARRAY(VARCHAR(100)))
+    __table_args__ = ({'prefixes': ['UNLOGGED']}, )
 
 
 class Like(Base):
@@ -35,4 +36,5 @@ class Like(Base):
     likes_count = Column(SmallInteger())
     __table_args__ = (
         UniqueConstraint('account_id', 'liked_account_id', name="constr_likes_composed_key_unique"),
+        {'prefixes': ['UNLOGGED']},
     )
