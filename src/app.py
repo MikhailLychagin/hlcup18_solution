@@ -94,15 +94,15 @@ class AppHandlers:
                 elif k == "premium":
                     if columns.tell():
                         columns.write(",")
-                    columns.write("premium_start,premium_end,has_premium")
+                    columns.write("premium_start,premium_finish,has_premium")
 
                     if values.tell():
                         values.write(",")
-                    columns.write(str(v["premium_start"]))
-                    columns.write(",")
-                    columns.write(str(v["premium_end"]))
-                    columns.write(",")
-                    columns.write("1" if v["premium_start"] <= self._app['date'] <= v["premium_end"] else "0")
+                    values.write(str(v["start"]))
+                    values.write(",")
+                    values.write(str(v["finish"]))
+                    values.write(",")
+                    values.write("'t'" if v["start"] <= self._app['date'] <= v["finish"] else "'f'")
 
                     i += 1
                     continue
