@@ -158,70 +158,73 @@ class AppHandlers:
         columns, values = io.StringIO(), io.StringIO()
         interests, likes = None, None
         i = 1
-        for k, v in body.items():
-            if k == "id":
-                continue
-            elif k == "interests":
-                if v:
+        try:
+            for k, v in body.items():
+                if k == "id":
+                    continue
+                elif k == "interests":
+                    if v:
+                        if columns.tell():
+                            columns.write(",")
+                        columns.write("interests")
+
+                        if values.tell():
+                            values.write(",")
+                        values.write("'{")
+                        values.write(
+                            ",".join('"{}"'.format(interest) for interest in v)
+                        )
+                        values.write("}'")
+
+                    i += 1
+                    continue
+                elif k == "likes":
+                    likes = v
+                    continue
+                elif k == "status":
+                    v = STATUS_MAP[v]
+                elif k == "birth":
                     if columns.tell():
                         columns.write(",")
-                    columns.write("interests")
+                    columns.write("birth_year")
+
+                    parsed_date = datetime.utcfromtimestamp(v)
 
                     if values.tell():
                         values.write(",")
-                    values.write("'{")
-                    values.write(
-                        ",".join('"{}"'.format(interest) for interest in v)
-                    )
-                    values.write("}'")
+                    values.write(str(parsed_date.year))
+                elif k == "premium":
+                    if columns.tell():
+                        columns.write(",")
+                    columns.write("premium_start,premium_finish,has_premium")
 
-                i += 1
-                continue
-            elif k == "likes":
-                likes = v
-                continue
-            elif k == "status":
-                v = STATUS_MAP[v]
-            elif k == "birth":
+                    if values.tell():
+                        values.write(",")
+                    values.write(str(v["start"]))
+                    values.write(",")
+                    values.write(str(v["finish"]))
+                    values.write(",")
+                    values.write("'t'" if v["start"] <= self._app['date'] <= v["finish"] else "'f'")
+
+                    i += 1
+                    continue
+
                 if columns.tell():
                     columns.write(",")
-                columns.write("birth_year")
-
-                parsed_date = datetime.utcfromtimestamp(v)
+                columns.write(k)
 
                 if values.tell():
                     values.write(",")
-                values.write(str(parsed_date.year))
-            elif k == "premium":
-                if columns.tell():
-                    columns.write(",")
-                columns.write("premium_start,premium_finish,has_premium")
-
-                if values.tell():
-                    values.write(",")
-                values.write(str(v["start"]))
-                values.write(",")
-                values.write(str(v["finish"]))
-                values.write(",")
-                values.write("'t'" if v["start"] <= self._app['date'] <= v["finish"] else "'f'")
+                if isinstance(v, str):
+                    values.write("'")
+                    values.write(v)
+                    values.write("'")
+                else:
+                    values.write(str(v))
 
                 i += 1
-                continue
-
-            if columns.tell():
-                columns.write(",")
-            columns.write(k)
-
-            if values.tell():
-                values.write(",")
-            if isinstance(v, str):
-                values.write("'")
-                values.write(v)
-                values.write("'")
-            else:
-                values.write(str(v))
-
-            i += 1
+        except (TypeError, ValueError):
+            return web.Response(status=400)
 
         columns.seek(0)
         values.seek(0)
@@ -250,7 +253,6 @@ class AppHandlers:
 
         return web.Response(status=201)
 
-
     async def accounts_likes_add(self, request):
         try:
             body = await request.json()
@@ -266,6 +268,10 @@ class AppHandlers:
             return web.Response(status=400)
 
         return web.Response(status=202)
+
+
+    async def health(self, request):
+        return web.Response(status=200)
 
 
 async def init_app():
@@ -287,14 +293,12 @@ async def init_app():
     app.add_routes([web.post('/accounts/new/', app_handlers.accounts_new)])
     app.add_routes([web.post('/accounts/likes/', app_handlers.accounts_likes_add)])
     app.add_routes([web.post('/accounts/{id}/', app_handlers.accounts_post)])
+    app.add_routes([web.get('/health', app_handlers.health)])
 
     return app
 
+
 if __name__ == '__main__':
-    import init_db
-
-    init_db.do_init()
-
     loop = asyncio.get_event_loop()
     app = loop.run_until_complete(init_app())
     web.run_app(app, port=80, access_log=None)
