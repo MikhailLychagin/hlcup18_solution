@@ -53,74 +53,77 @@ class AppHandlers:
         columns, values = io.StringIO(), io.StringIO()
         likes = None
         i = 1
-        for k, v in body.items():
-            if k == "id":
-                return web.Response(status=400)
-            elif k == "status":
-                v = STATUS_MAP[v]
-            elif k == "likes":
-                likes = v
-                continue
-            elif k == "interests":
+        try:
+            for k, v in body.items():
+                if k == "id":
+                    return web.Response(status=400)
+                elif k == "status":
+                    v = STATUS_MAP[v]
+                elif k == "likes":
+                    likes = v
+                    continue
+                elif k == "interests":
+                    if columns.tell():
+                        columns.write(",")
+                    columns.write("interests")
+
+                    if values.tell():
+                        values.write(",")
+
+                    if v:
+                        values.write("'{")
+                        values.write(
+                            ",".join('"{}"'.format(interest) for interest in v)
+                        )
+                        values.write("}'")
+                    else:
+                        values.write("NULL")
+
+                    i += 1
+                    continue
+                elif k == "birth":
+                    if columns.tell():
+                        columns.write(",")
+                    columns.write("birth_year")
+
+                    parsed_date = datetime.utcfromtimestamp(v)
+
+                    if values.tell():
+                        values.write(",")
+                    values.write(str(parsed_date.year))
+                elif k == "premium":
+                    if columns.tell():
+                        columns.write(",")
+                    columns.write("premium_start,premium_end,has_premium")
+
+                    if values.tell():
+                        values.write(",")
+                    columns.write(str(v["premium_start"]))
+                    columns.write(",")
+                    columns.write(str(v["premium_end"]))
+                    columns.write(",")
+                    columns.write("1" if v["premium_start"] <= self._app['date'] <= v["premium_end"] else "0")
+
+                    i += 1
+                    continue
+                # TODO: check "но в теле запроса переданы неизвестные поля или типы значений неверны, то ожидается код 400"
+
                 if columns.tell():
                     columns.write(",")
-                columns.write("interests")
+                columns.write(k)
 
                 if values.tell():
                     values.write(",")
-
-                if v:
-                    values.write("'{")
-                    values.write(
-                        ",".join('"{}"'.format(interest) for interest in v)
-                    )
-                    values.write("}'")
+                if isinstance(v, str):
+                    values.write("'")
+                    values.write(v)
+                    values.write("'")
                 else:
-                    values.write("NULL")
+                    values.write(str(v))
 
                 i += 1
-                continue
-            elif k == "birth":
-                if columns.tell():
-                    columns.write(",")
-                columns.write("birth_year")
-
-                parsed_date = datetime.utcfromtimestamp(v)
-
-                if values.tell():
-                    values.write(",")
-                values.write(str(parsed_date.year))
-            elif k == "premium":
-                if columns.tell():
-                    columns.write(",")
-                columns.write("premium_start,premium_end,has_premium")
-
-                if values.tell():
-                    values.write(",")
-                columns.write(str(v["premium_start"]))
-                columns.write(",")
-                columns.write(str(v["premium_end"]))
-                columns.write(",")
-                columns.write("1" if v["premium_start"] <= self._app['date'] <= v["premium_end"] else "0")
-
-                i += 1
-                continue
-            # TODO: check "но в теле запроса переданы неизвестные поля или типы значений неверны, то ожидается код 400"
-
-            if columns.tell():
-                columns.write(",")
-            columns.write(k)
-
-            if values.tell():
-                values.write(",")
-            if isinstance(v, str):
-                values.write("'")
-                values.write(v)
-                values.write("'")
-            else:
-                values.write(str(v))
-
-            i += 1
+        except (TypeError, ValueError, KeyError):
+            return web.Response(status=400)
 
         columns.seek(0)
         values.seek(0)
@@ -223,7 +226,7 @@ class AppHandlers:
                     values.write(str(v))
 
                 i += 1
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, KeyError):
             return web.Response(status=400)
 
         columns.seek(0)
@@ -253,14 +256,18 @@ class AppHandlers:
 
         return web.Response(status=201)
 
+
     async def accounts_likes_add(self, request):
         try:
             body = await request.json()
             async with self._app['pool'].acquire() as conn:
                 await conn.executemany(
                     """INSERT INTO tbl_likes
-                    (account_id, liked_account_id, ts)
-                    VALUES ($1, $2, $3);
+                    (account_id, liked_account_id, avg_ts, likes_count)
+                    VALUES ($1, $2, $3, 1)
+                    ON CONFLICT ON CONSTRAINT constr_likes_composed_key_unique DO UPDATE
+                        SET avg_ts = (cast(1 as bigint) * tbl_likes.avg_ts * tbl_likes.likes_count + $3) / (tbl_likes.likes_count + 1),
+                            likes_count = tbl_likes.likes_count + 1;
                     """,
                     ((i["liker"], i["likee"], i["ts"]) for i in body["likes"])
                 )
