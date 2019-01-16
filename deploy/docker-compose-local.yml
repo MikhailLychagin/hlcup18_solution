@@ -4,6 +4,7 @@ services:
     image: stor.highloadcup.ru/accounts/cute_bison
     ports:
       - 28080:80
+      - 5432:5432
     environment:
       POSTGRES_PASSWORD: password
     volumes:

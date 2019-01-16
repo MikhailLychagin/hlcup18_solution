@@ -32,9 +32,8 @@ COPY src ./src
 COPY deploy ./deploy
 
 
-COPY ./deploy/postgrespostgresql.conf /var/lib/pgsql/data/postgresql.conf
+COPY ./deploy/postgres/postgresql.conf /var/lib/pgsql/data/postgresql.conf
 ADD ./deploy/postgres/pg_hba.conf /var/lib/pgsql/data/pg_hba.conf
 RUN chown -R -v postgres.postgres /var/lib/pgsql/data
-RUN sudo -u postgres /usr/pgsql-11/bin/postgres -D /var/lib/pgsql/data -p 5432 &
 EXPOSE 80
 ENTRYPOINT supervisord -n -c ./deploy/supervisord.conf
