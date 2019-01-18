@@ -32,7 +32,7 @@ COPY src ./src
 COPY deploy ./deploy
 
 
-COPY ./deploy/postgres/postgresql.conf /var/lib/pgsql/data/postgresql.conf
+COPY deploy/postgres/postgresql_prod.conf /var/lib/pgsql/data/postgresql.conf
 ADD ./deploy/postgres/pg_hba.conf /var/lib/pgsql/data/pg_hba.conf
 RUN chown -R -v postgres.postgres /var/lib/pgsql/data
 EXPOSE 80

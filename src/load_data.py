@@ -29,13 +29,17 @@ def main():
 
 def load_accounts_data(content_data):
     while True:
-        res = requests.get("http://localhost:80/health", timeout=1)
+        try:
+            res = requests.get("http://localhost:80/health")
+            res.raise_for_status()
+        except requests.RequestException:
+            print("Waiting for the main app to UP.")
+            time.sleep(0.5)
+            continue
+
         if res.status_code == 200:
             print("The main app is UP, loading data...")
             break
-
-        print("Waiting for the main app to UP.")
-        time.sleep(0.5)
 
     reqs = [grequests.post("http://localhost:80/accounts/new/", json=obj) for obj in content_data]
     load_start = time.time()

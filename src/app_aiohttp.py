@@ -1,9 +1,14 @@
 import asyncio
+import datetime
+
 import uvloop
+from asyncpg import UniqueViolationError, NotNullViolationError
+
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 import io
 import os
-from datetime import datetime
+import time
+import bjoern
 
 import asyncpg
 from aiohttp import web
@@ -30,6 +35,8 @@ SPECIAL_ACCOUNT_FIELDS = {
 
 STATUS_MAP = {"свободны": 0, "заняты": 1, "всё сложно": 2}
 
+rcv_req = 0
+out_resp = 0
 
 class AppHandlers:
     def __init__(self, app) -> None:
@@ -45,7 +52,16 @@ class AppHandlers:
 
 
     async def accounts_post(self, request):
-        account_id = int(request.match_info['id'])
+        global out_resp, rcv_req
+        rcv_req += 1
+        print(rcv_req)
+        try:
+            account_id = int(request.match_info['id'])
+        except ValueError:
+            out_resp += 1
+            print(out_resp)
+            return web.Response(status=400)
+
         conn = await self._app['pool'].acquire()
         if not await conn.fetchval("""select exists(select 1 from tbl_accounts where id = $1)""", account_id):
             return web.Response(status=404)
@@ -86,7 +102,7 @@ class AppHandlers:
                         columns.write(",")
                     columns.write("birth_year")
 
-                    parsed_date = datetime.utcfromtimestamp(v)
+                    parsed_date = datetime.datetime.utcfromtimestamp(v)
 
                     if values.tell():
                         values.write(",")
@@ -123,6 +139,8 @@ class AppHandlers:
 
                 i += 1
         except (TypeError, ValueError, KeyError):
+            out_resp += 1
+            print(out_resp)
             return web.Response(status=400)
 
         columns.seek(0)
@@ -153,10 +171,17 @@ class AppHandlers:
                         ((account_id, i["id"], i["ts"]) for i in likes)
                     )
 
+        out_resp += 1
+        print(out_resp)
         return web.Response(status=202)
 
 
     async def accounts_new(self, request):
+        global out_resp, rcv_req
+        rcv_req += 1
+        print(rcv_req)
+
+        time_start = time.time()
         body = await request.json()
         columns, values = io.StringIO(), io.StringIO()
         interests, likes = None, None
@@ -191,7 +216,7 @@ class AppHandlers:
                         columns.write(",")
                     columns.write("birth_year")
 
-                    parsed_date = datetime.utcfromtimestamp(v)
+                    parsed_date = datetime.datetime.utcfromtimestamp(v)
 
                     if values.tell():
                         values.write(",")
@@ -227,6 +252,8 @@ class AppHandlers:
 
                 i += 1
         except (TypeError, ValueError, KeyError):
+            out_resp += 1
+            print(out_resp)
             return web.Response(status=400)
 
         columns.seek(0)
@@ -234,13 +261,18 @@ class AppHandlers:
 
         async with self._app['pool'].acquire() as conn:
             async with conn.transaction():
-                account_id = await conn.fetchval(
-                    """INSERT INTO tbl_accounts
-                    ({})
-                    VALUES ({})
-                    RETURNING id;
-                    """.format(columns.read(), values.read())
-                )
+                try:
+                    account_id = await conn.fetchval(
+                        """INSERT INTO tbl_accounts
+                        ({})
+                        VALUES ({})
+                        RETURNING id;
+                        """.format(columns.read(), values.read())
+                    )
+                except (UniqueViolationError, NotNullViolationError):
+                    out_resp += 1
+                    print(out_resp)
+                    return web.Response(status=400)
 
                 if likes:
                     await conn.executemany(
@@ -254,6 +286,12 @@ class AppHandlers:
                         ((account_id, i["id"], i["ts"]) for i in likes)
                     )
 
+        time_end = time.time() - time_start
+        if time_end > 10:
+            print("SLOW RESPONSE: {} s".format(time_end))
+
+        out_resp += 1
+        print(out_resp)
         return web.Response(status=201)
 
 
@@ -308,4 +346,4 @@ async def init_app():
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     app = loop.run_until_complete(init_app())
-    web.run_app(app, port=80, access_log=None)
+    web.run_app(app, port=28080)
