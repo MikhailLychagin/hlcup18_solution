@@ -8,7 +8,7 @@ Base = declarative_base()
 class Account(Base):
     __tablename__ = 'tbl_accounts'
     id = Column(Integer, primary_key=True)
-    email = Column(Unicode(100), nullable=False)
+    email = Column(Unicode(100), nullable=False, unique=True)
     fname = Column(Unicode(50), nullable=True)
     sname = Column(Unicode(50), nullable=True)
     phone = Column(Unicode(16), nullable=True)
