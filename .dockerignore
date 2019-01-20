@@ -2,3 +2,4 @@ deploy/data/
 load_test/
 log.txt
 logs/
+venv/
