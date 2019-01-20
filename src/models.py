@@ -11,7 +11,7 @@ class Account(Base):
     email = Column(Unicode(100), nullable=False, unique=True)
     fname = Column(Unicode(50), nullable=True)
     sname = Column(Unicode(50), nullable=True)
-    phone = Column(Unicode(16), nullable=True)
+    phone = Column(Unicode(16), nullable=True, unique=True)
     phone_code = Column(Unicode(3), nullable=True)
     sex = Column(Unicode(1), nullable=False)
     birth = Column(Integer())

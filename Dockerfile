@@ -18,7 +18,7 @@ ARG python_interpreter=/root/.pyenv/versions/3.7.2/bin/python
 RUN yum -y install https://download.postgresql.org/pub/repos/yum/11/redhat/rhel-7-x86_64/pgdg-centos11-11-2.noarch.rpm
 RUN yum -y install postgresql11-server sudo epel-release; yum clean all
 RUN yum -y install supervisor; yum clean all
-ADD ./deploy/postgres/postgresql-setup /usr/bin/postgresql-setup
+ADD deploy/postgres/postgresql-setup /usr/bin/postgresql-setup
 #Sudo requires a tty. fix that.
 RUN sed -i 's/.*requiretty$/#Defaults requiretty/' /etc/sudoers
 RUN chmod +x /usr/bin/postgresql-setup
@@ -33,7 +33,7 @@ COPY deploy ./deploy
 
 
 COPY deploy/postgres/postgresql_prod.conf /var/lib/pgsql/data/postgresql.conf
-ADD ./deploy/postgres/pg_hba.conf /var/lib/pgsql/data/pg_hba.conf
-RUN chown -R -v postgres.postgres /var/lib/pgsql/data
+ADD deploy/postgres/pg_hba.conf /var/lib/pgsql/data/pg_hba.conf
+RUN chown -R -v postgres.postgres /var/lib/pgsql/data 1>/dev/null
 EXPOSE 80
 ENTRYPOINT supervisord -n -c ./deploy/supervisord.conf

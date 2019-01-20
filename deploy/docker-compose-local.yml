@@ -1,11 +1,17 @@
-version: "3.3"
+version: "2.4"
 services:
   app:
     image: stor.highloadcup.ru/accounts/cute_bison
     ports:
-      - 28080:80
+#      - 28080:80
       - 5432:5432
     environment:
       POSTGRES_PASSWORD: password
     volumes:
-      - /Users/mlychagin/dev/mhc_2018/hlcupdocs/data/test_accounts_241218/data:/tmp/data
+      - /home/mlychagin/dev/python/hlcupdocs/data/test_accounts_241218/data:/tmp/data
+      - /home/mlychagin/dev/python/hlcup18_solution/deploy/supervisord.conf:/mhc2018_app/deploy/supervisord.conf
+      - /home/mlychagin/dev/python/hlcup18_solution/src:/mhc2018_app/src
+      - /home/mlychagin/dev/python/hlcup18_solution/deploy/postgres/postgresql_prod.conf:/var/lib/pgsql/data/postgresql.conf
+      - /home/mlychagin/dev/python/hlcup18_solution/deploy/postgres/pg_hba.conf:/var/lib/pgsql/data/pg_hba.conf
+    cpu_count: 2
+    mem_limit: 2000M

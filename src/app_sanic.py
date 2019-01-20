@@ -1,11 +1,13 @@
+import asyncio
 import datetime
 import io
 import os
-import time
 
 import asyncpg
-from asyncpg import UniqueViolationError, NotNullViolationError, InvalidTextRepresentationError
+from asyncpg import UniqueViolationError, NotNullViolationError, InvalidTextRepresentationError, PostgresError
 from sanic import Sanic, response
+from sanic.exceptions import NotFound
+from sanic.log import logger
 
 STATUS_MAP = {"свободны": 0, "заняты": 1, "всё сложно": 2}
 
@@ -28,14 +30,21 @@ app = init_app()
 
 @app.listener('before_server_start')
 async def init_db(sanic, loop):
-    sanic.db = await asyncpg.create_pool(host='localhost',
-                                            port=5432,
-                                            user='postgres',
-                                            password='password',
-                                            database='pairer',
-                                            ssl=False,
-                                            max_size=100,
-                                   loop=loop)
+    while True:
+        try:
+            sanic.db = await asyncpg.create_pool(host='localhost',
+                                                    port=5432,
+                                                    user='postgres',
+                                                    password='password',
+                                                    database='pairer',
+                                                    ssl=False,
+                                                    max_size=100,
+                                           loop=loop)
+            break
+        except PostgresError as e:
+            logger.debug(e)
+            await asyncio.sleep(1)
+            logger.debug("Retrying DB connect.")
 
 
 @app.route('/accounts/new/', methods=("POST", ))
@@ -111,7 +120,8 @@ async def acc_new(request):
                 values.write(str(v))
 
             i += 1
-    except (TypeError, ValueError, KeyError):
+    except (TypeError, ValueError, KeyError) as e:
+        logger.debug(str(e))
         return response.text("", status=400)
 
     columns.seek(0)
@@ -127,7 +137,8 @@ async def acc_new(request):
                     RETURNING id;
                     """.format(columns.read(), values.read())
                 )
-            except (UniqueViolationError, NotNullViolationError, InvalidTextRepresentationError):
+            except (UniqueViolationError, NotNullViolationError, InvalidTextRepresentationError) as e:
+                logger.debug(str(e))
                 return response.text("", status=400)
 
             if likes:
@@ -281,9 +292,15 @@ async def likes_add(request):
 
     return response.text("", status=202)
 
+
 @app.route('/health')
 async def health(request):
     return response.text("", status=200)
+
+
+@app.exception(NotFound)
+def ignore_404s(request, exception):
+    return response.HTTPResponse(status=404)
 
 
 if __name__ == '__main__':

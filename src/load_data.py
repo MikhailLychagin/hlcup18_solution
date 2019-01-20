@@ -11,6 +11,10 @@ DATA_PATH = os.environ.get("DATA_PATH", '/tmp/data/data.zip')
 
 
 def main():
+    if os.environ.get("SKIP_DATA_LOAD", None) in {1, True, "True", "true", "1"}:
+        print("Skipped data load.")
+        exit()
+
     start = datetime.datetime.now()
     print("Started data load.")
 
@@ -48,7 +52,8 @@ def load_accounts_data(content_data):
         size=400,
     )
     assert all((resp.status_code < 299 for resp in res))
-    print("Loaded pack in {}".format(time.time() - load_start))
+    elapsed = time.time() - load_start
+    print("Loaded {} in {}, {} IPS.".format(len(content_data), elapsed, len(content_data)/elapsed))
 
 
 if __name__ == '__main__':
