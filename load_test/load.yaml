@@ -1,0 +1,7 @@
+phantom:
+  address: 127.0.0.1:28080
+  load_profile:
+    load_type: rps
+    schedule: line(50, 50, 30s)
+  ammo_type: phantom
+  ammofile: phase_2_post.ammo

@@ -204,3 +204,6 @@ dmypy.json
 # End of https://www.gitignore.io/api/python,pycharm
 
 deploy/data/
+load_test/
+log.txt
+logs/
