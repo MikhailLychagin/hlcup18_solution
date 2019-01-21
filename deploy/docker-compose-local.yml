@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_PASSWORD: password
     volumes:
-      - /Users/mlychagin/dev/mhc_2018/hlcupdocs/data/test_accounts_241218/data:/tmp/data
+      - /Users/mlychagin/dev/mhc_2018/hlcupdocs/data/test_accounts_170119/data:/tmp/data
       - /Users/mlychagin/dev/mhc_2018/solution/deploy/supervisord.conf:/mhc2018_app/deploy/supervisord.conf:ro
       - /Users/mlychagin/dev/mhc_2018/solution/src:/mhc2018_app/src:ro
       - /Users/mlychagin/dev/mhc_2018/solution/deploy/postgres/postgresql_prod.conf:/var/lib/pgsql/data/postgresql.conf:ro
