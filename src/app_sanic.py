@@ -1,3 +1,4 @@
+import logging
 import os
 
 import asyncio
@@ -6,7 +7,7 @@ import io
 
 import asyncpg
 from asyncpg import UniqueViolationError, NotNullViolationError, InvalidTextRepresentationError, PostgresError, \
-    StringDataRightTruncationError
+    StringDataRightTruncationError, UndefinedObjectError, InvalidTableDefinitionError
 from sanic import Sanic, response
 from sanic.exceptions import NotFound
 from sanic.log import logger
@@ -23,6 +24,9 @@ debug_conf = {
     "ACCESS_LOG": True,
 }
 
+POSSIBLE_EXCEPTIONS = (UniqueViolationError, NotNullViolationError,
+                InvalidTextRepresentationError, StringDataRightTruncationError)
+
 
 def init_app():
     debug = os.environ.get("DEBUG") in {"1", 1, True, "True"}
@@ -34,6 +38,7 @@ def init_app():
     app.config.from_object(used_conf)
     if debug:
         app.date = 1545613207.0
+        logger.setLevel(logging.DEBUG)
     else:
         with open("/tmp/data/options.txt") as f:
             app.date = float(f.readline(1))
@@ -46,14 +51,8 @@ app = init_app()
 async def init_db(sanic, loop):
     while True:
         try:
-            sanic.db = await asyncpg.create_pool(host='localhost',
-                                                    port=5432,
-                                                    user='postgres',
-                                                    password='password',
-                                                    database='pairer',
-                                                    ssl=False,
-                                                    max_size=100,
-                                           loop=loop)
+            sanic.db = await asyncpg.create_pool(host='localhost', port=5432, user='postgres', password='password',
+                                                 database='pairer', ssl=False, max_size=500, loop=loop)
             break
         except PostgresError as e:
             logger.debug(e)
@@ -67,12 +66,12 @@ async def acc_new(request):
 
     body = request.json
     columns, values = io.StringIO(), io.StringIO()
-    interests, likes = None, None
+    account_id, interests, likes = None, None, None
     i = 1
     try:
         for k, v in body.items():
             if k == "id":
-                continue
+                account_id = v
             elif k == "interests":
                 if v:
                     if columns.tell():
@@ -138,33 +137,45 @@ async def acc_new(request):
         logger.debug(str(e))
         return response.text("", status=400)
 
+    if account_id is None:
+        return response.text("", status=400)
+
     columns.seek(0)
     values.seek(0)
 
     async with app.db.acquire() as conn:
-        try:
-            q = """INSERT INTO tbl_accounts
-                ({})
-                VALUES ({})
-                RETURNING id;
-                """.format(columns.read(), values.read())
-            account_id = await conn.fetchval(q)
-        except (UniqueViolationError, NotNullViolationError,
-                InvalidTextRepresentationError, StringDataRightTruncationError) as e:
-            logger.debug(str(e))
-            return response.text("", status=400)
+        q = """INSERT INTO tbl_accounts
+            ({})
+            VALUES ({})
+            RETURNING id;
+            """.format(columns.read(), values.read())
+        acc_task = asyncio.create_task(conn.fetchval(q))
 
         if likes:
-            await conn.executemany(
-                """INSERT INTO tbl_likes
-                (account_id, liked_account_id, avg_ts, likes_count)
-                VALUES ($1, $2, $3, 1)
-                ON CONFLICT ON CONSTRAINT constr_likes_composed_key_unique DO UPDATE
-                    SET avg_ts = (cast(1 as bigint) * tbl_likes.avg_ts * tbl_likes.likes_count + $3) / (tbl_likes.likes_count + 1),
-                        likes_count = tbl_likes.likes_count + 1;
-                """,
-                ((account_id, i["id"], i["ts"]) for i in likes)
-            )
+            async with app.db.acquire() as conn2:
+                likes_task = asyncio.create_task(
+                    conn2.executemany(
+                        """INSERT INTO tbl_likes
+                        (account_id, liked_account_id, avg_ts, likes_count)
+                        VALUES ($1, $2, $3, 1)
+                        ON CONFLICT ON CONSTRAINT constr_likes_composed_key_unique DO UPDATE
+                            SET avg_ts = (cast(1 as bigint) * tbl_likes.avg_ts * tbl_likes.likes_count + $3) / (tbl_likes.likes_count + 1),
+                                likes_count = tbl_likes.likes_count + 1;
+                        """,
+                        ((account_id, i["id"], i["ts"]) for i in likes)
+                    )
+                )
+                try:
+                    await asyncio.wait((acc_task, likes_task))
+                except POSSIBLE_EXCEPTIONS as e:
+                    logger.debug(str(e))
+                    return response.text("", status=400)
+        else:
+            try:
+                await acc_task
+            except POSSIBLE_EXCEPTIONS as e:
+                logger.debug(str(e))
+                return response.text("", status=400)
 
     return response.text("", status=201)
 
@@ -309,6 +320,62 @@ async def likes_add(request):
 
 @app.route('/health')
 async def health(request):
+    return response.text("", status=200)
+
+
+@app.route('/insert_mode')
+async def health(request):
+    logger.debug("insert_mode")
+    global app
+
+    async with app.db.acquire() as conn:
+        async with conn.transaction():
+            try:
+                await conn.execute("ALTER TABLE tbl_accounts DROP CONSTRAINT tbl_accounts_pkey")
+                await conn.execute("ALTER TABLE tbl_accounts DROP CONSTRAINT tbl_accounts_email_key")
+                await conn.execute("ALTER TABLE tbl_accounts DROP CONSTRAINT tbl_accounts_phone_key")
+
+                await conn.execute("DROP INDEX tbl_accounts_pkey")
+                await conn.execute("DROP INDEX tbl_accounts_email_key")
+                await conn.execute("DROP INDEX tbl_accounts_phone_key")
+
+                await conn.execute("ALTER TABLE tbl_likes DROP CONSTRAINT tbl_likes_pkey")
+                # await conn.execute("ALTER TABLE tbl_likes DROP CONSTRAINT constr_likes_composed_key_unique")
+
+                await conn.execute("DROP INDEX tbl_likes_pkey")
+            except UndefinedObjectError:
+                logger.debug("UndefinedObjectError")
+                # Already deleted
+                pass
+
+    return response.text("", status=200)
+
+
+@app.route('/get_mode')
+async def health(request):
+    logger.debug("get_mode")
+    global app
+
+    async with app.db.acquire() as conn:
+        async with conn.transaction():
+            try:
+                await conn.execute("ALTER TABLE tbl_accounts ADD CONSTRAINT tbl_accounts_pkey PRIMARY KEY (id)")
+                await conn.execute("ALTER TABLE tbl_accounts ADD CONSTRAINT tbl_accounts_email_key UNIQUE (email)")
+                await conn.execute("ALTER TABLE tbl_accounts ADD CONSTRAINT tbl_accounts_phone_key UNIQUE (phone)")
+
+                await conn.execute("CREATE UNIQUE INDEX tbl_accounts_pkey ON public.tbl_accounts USING btree (id)")
+                await conn.execute("CREATE UNIQUE INDEX tbl_accounts_email_key ON public.tbl_accounts USING btree (email)")
+                await conn.execute("CREATE UNIQUE INDEX tbl_accounts_phone_key ON public.tbl_accounts USING btree (phone)")
+
+                await conn.execute("ALTER TABLE tbl_likes ADD CONSTRAINT tbl_likes_pkey PRIMARY KEY (id)")
+                # await conn.execute("ALTER TABLE tbl_likes ADD CONSTRAINT constr_likes_composed_key_unique UNIQUE (account_id, liked_account_id)")
+
+                await conn.execute("CREATE UNIQUE INDEX tbl_likes_pkey ON public.tbl_likes USING btree (id)")
+            except InvalidTableDefinitionError:
+                logger.debug("InvalidTableDefinitionError")
+                # Already exists
+                pass
+
     return response.text("", status=200)
 
 
