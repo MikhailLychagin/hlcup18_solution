@@ -29,11 +29,11 @@ WORKDIR mhc2018_app
 COPY requirements.txt .
 RUN $python_interpreter -m pip install -r requirements.txt
 COPY src ./src
-COPY deploy ./deploy
+COPY ./deploy ./deploy
 
 
-COPY deploy/postgres/postgresql_prod.conf /var/lib/pgsql/data/postgresql.conf
-ADD deploy/postgres/pg_hba.conf /var/lib/pgsql/data/pg_hba.conf
+COPY ./deploy/postgres/postgresql_prod.conf /var/lib/pgsql/data/postgresql.conf
+ADD ./deploy/postgres/pg_hba.conf /var/lib/pgsql/data/pg_hba.conf
 RUN chown -R -v postgres.postgres /var/lib/pgsql/data 1>/dev/null
 EXPOSE 80
 ENTRYPOINT supervisord -n -c ./deploy/supervisord.conf
