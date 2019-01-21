@@ -1,10 +1,10 @@
 import json
+import logging
 import zipfile
 import datetime
 import time
 import os
 import re
-import requests
 import grequests
 
 DATA_PATH = os.environ.get("DATA_PATH", '/tmp/data/data.zip')
@@ -33,25 +33,22 @@ def main():
 
 def load_accounts_data(content_data):
     while True:
-        try:
-            res = requests.get("http://localhost:80/health")
-            res.raise_for_status()
-        except requests.RequestException:
-            print("Waiting for the main app to UP.")
-            time.sleep(0.5)
-            continue
-
-        if res.status_code == 200:
+        res = grequests.get("http://localhost:80/health").send()
+        if res.response and res.response.status_code == 200:
             print("The main app is UP, loading data...")
             break
+        print("Waiting for the main app to UP.")
+        time.sleep(0.5)
 
     reqs = [grequests.post("http://localhost:80/accounts/new/", json=obj) for obj in content_data]
     load_start = time.time()
     res = grequests.map(
         reqs,
-        size=400,
+        size=800,
     )
-    assert all((resp.status_code < 299 for resp in res))
+    all_ok = all((resp.status_code < 299 for resp in res))
+    if not all_ok:
+        logging.info("Some data wasn't loaded successfully.")
     elapsed = time.time() - load_start
     print("Loaded {} in {}, {} IPS.".format(len(content_data), elapsed, len(content_data)/elapsed))
 

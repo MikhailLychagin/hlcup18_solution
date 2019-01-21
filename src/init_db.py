@@ -1,3 +1,8 @@
+import os
+if os.environ.get("DEBUG", None) not in {1, "True", "true"}:
+    import warnings
+    warnings.filterwarnings("ignore", category=UserWarning)
+
 import time
 
 import models

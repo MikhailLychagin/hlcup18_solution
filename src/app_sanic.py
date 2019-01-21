@@ -1,26 +1,40 @@
+import os
+
 import asyncio
 import datetime
 import io
-import os
 
 import asyncpg
-from asyncpg import UniqueViolationError, NotNullViolationError, InvalidTextRepresentationError, PostgresError
+from asyncpg import UniqueViolationError, NotNullViolationError, InvalidTextRepresentationError, PostgresError, \
+    StringDataRightTruncationError
 from sanic import Sanic, response
 from sanic.exceptions import NotFound
 from sanic.log import logger
 
 STATUS_MAP = {"свободны": 0, "заняты": 1, "всё сложно": 2}
 
+prod_conf = {
+    "DEBUG": False,
+    "ACCESS_LOG": False,
+}
+
+debug_conf = {
+    "DEBUG": True,
+    "ACCESS_LOG": True,
+}
+
+
 def init_app():
-    app = Sanic()
-    app.config.RESPONSE_TIMEOUT = 2
-    app.config.KEEP_ALIVE_TIMEOUT = 10
-    app.debug = os.environ.get("DEBUG") in {"1", 1, True, "True"}
-    if app.debug:
+    debug = os.environ.get("DEBUG") in {"1", 1, True, "True"}
+    used_conf = debug_conf if debug else prod_conf
+
+    app = Sanic(
+        configure_logging=debug  # enable logging only in debug
+    )
+    app.config.from_object(used_conf)
+    if debug:
         app.date = 1545613207.0
     else:
-        app.config.ACCESS_LOG = False
-        app.config.DEBUG = False
         with open("/tmp/data/options.txt") as f:
             app.date = float(f.readline(1))
 
@@ -304,4 +318,7 @@ def ignore_404s(request, exception):
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80, workers=4)
+    if app.debug:
+        app.run(host='0.0.0.0', port=80, workers=8, access_log=True, debug=True)
+    else:
+        app.run(host='0.0.0.0', port=80, workers=8, access_log=False)
