@@ -14,7 +14,14 @@ import (
 var (
 	addr = flag.String("addr", ":28080", "TCP address to listen to")
 	dm   = &models.DataManager{
-		Accounts: make(map[int16]*models.AccountEntry),
+		Accounts:     make(map[uint16]*models.AccountEntry),
+		CountryToId:  make(models.ReprToIdMap, 1024),
+		IdToCountry:  make([]*string, 1024),
+		CityToId:     make(models.ReprToIdMap, 1024),
+		IdToCity:     make([]*string, 1024),
+		InterestToId: make(models.ReprToIdMap, 1024),
+		IdToInterest: make([]*string, 1024),
+		CurrentDate:  1547753597,
 	}
 )
 
@@ -29,14 +36,23 @@ func main() {
 }
 
 func accountNew(ctx *routing.Context) error {
-	// var acc models.AccountEntry
-	acc := &models.AccountEntry{}
-	err := acc.UnmarshalJSON(ctx.PostBody())
+	// var acc models.AccountFormEntry
+	accForm := &models.AccountFormEntry{}
+	err := accForm.UnmarshalJSON(ctx.PostBody())
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		return nil
 	}
+	fmt.Println(accForm)
+	acc, err := dm.FormToAccount(accForm)
+	if err != nil {
+		fmt.Println(err)
+		ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		return nil
+	}
+	fmt.Println(acc)
 	dm.AccountAdd(acc)
-	fmt.Print(acc)
 	accStr, _ := json.Marshal(acc)
 	ctx.Write(accStr)
 	ctx.SetContentType("application/json")

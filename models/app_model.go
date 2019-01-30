@@ -7,21 +7,41 @@ type Like struct {
 }
 
 //easyjson:json
+type AccountFormEntry struct {
+	Id        uint16
+	Email     string
+	Fname     string
+	Sname     string
+	Phone     string
+	Sex       string
+	Birth     uint32
+	Country   string
+	City      string
+	Joined    uint32
+	Status    string
+	Interests []string
+	Premium   struct {
+		Start  uint32
+		Finish uint32
+	}
+	Likes []*Like
+}
+
 type AccountEntry struct {
-	Id            int16
+	Id            uint16
 	Email         string
 	Fname         string
 	Sname         string
 	Phone         string
-	Sex           string
-	Birth         int32
-	Country       string
-	City          string
-	Joined        int32
-	Status        string
-	Interests     []string
-	PremiumStart  int32
-	PremiumFinish int32
+	Sex           uint8
+	Birth         uint32
+	Country       uint8
+	City          uint8
+	Joined        uint32
+	Status        uint8
+	Interests     []uint8
+	PremiumStart  uint32
+	PremiumFinish uint32
 	PremiumActive bool
 	Likes         []*Like
 }

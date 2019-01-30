@@ -100,7 +100,7 @@ func (v *Like) UnmarshalJSON(data []byte) error {
 func (v *Like) UnmarshalEasyJSON(l *jlexer.Lexer) {
 	easyjson5b12d0fdDecodeGithubComMhc18GoModels(l, v)
 }
-func easyjson5b12d0fdDecodeGithubComMhc18GoModels1(in *jlexer.Lexer, out *AccountEntry) {
+func easyjson5b12d0fdDecodeGithubComMhc18GoModels1(in *jlexer.Lexer, out *AccountFormEntry) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -120,7 +120,7 @@ func easyjson5b12d0fdDecodeGithubComMhc18GoModels1(in *jlexer.Lexer, out *Accoun
 		}
 		switch key {
 		case "id":
-			out.Id = int16(in.Int16())
+			out.Id = uint16(in.Uint16())
 		case "email":
 			out.Email = string(in.String())
 		case "fname":
@@ -132,13 +132,13 @@ func easyjson5b12d0fdDecodeGithubComMhc18GoModels1(in *jlexer.Lexer, out *Accoun
 		case "sex":
 			out.Sex = string(in.String())
 		case "birth":
-			out.Birth = int32(in.Int32())
+			out.Birth = uint32(in.Uint32())
 		case "country":
 			out.Country = string(in.String())
 		case "city":
 			out.City = string(in.String())
 		case "joined":
-			out.Joined = int32(in.Int32())
+			out.Joined = uint32(in.Uint32())
 		case "status":
 			out.Status = string(in.String())
 		case "interests":
@@ -164,12 +164,8 @@ func easyjson5b12d0fdDecodeGithubComMhc18GoModels1(in *jlexer.Lexer, out *Accoun
 				}
 				in.Delim(']')
 			}
-		case "premium_start":
-			out.PremiumStart = int32(in.Int32())
-		case "premium_finish":
-			out.PremiumFinish = int32(in.Int32())
-		case "premium_active":
-			out.PremiumActive = bool(in.Bool())
+		case "premium":
+			easyjson5b12d0fdDecode(in, &out.Premium)
 		case "likes":
 			if in.IsNull() {
 				in.Skip()
@@ -211,7 +207,7 @@ func easyjson5b12d0fdDecodeGithubComMhc18GoModels1(in *jlexer.Lexer, out *Accoun
 		in.Consumed()
 	}
 }
-func easyjson5b12d0fdEncodeGithubComMhc18GoModels1(out *jwriter.Writer, in AccountEntry) {
+func easyjson5b12d0fdEncodeGithubComMhc18GoModels1(out *jwriter.Writer, in AccountFormEntry) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -223,7 +219,7 @@ func easyjson5b12d0fdEncodeGithubComMhc18GoModels1(out *jwriter.Writer, in Accou
 		} else {
 			out.RawString(prefix)
 		}
-		out.Int16(int16(in.Id))
+		out.Uint16(uint16(in.Id))
 	}
 	{
 		const prefix string = ",\"email\":"
@@ -283,7 +279,7 @@ func easyjson5b12d0fdEncodeGithubComMhc18GoModels1(out *jwriter.Writer, in Accou
 		} else {
 			out.RawString(prefix)
 		}
-		out.Int32(int32(in.Birth))
+		out.Uint32(uint32(in.Birth))
 	}
 	{
 		const prefix string = ",\"country\":"
@@ -313,7 +309,7 @@ func easyjson5b12d0fdEncodeGithubComMhc18GoModels1(out *jwriter.Writer, in Accou
 		} else {
 			out.RawString(prefix)
 		}
-		out.Int32(int32(in.Joined))
+		out.Uint32(uint32(in.Joined))
 	}
 	{
 		const prefix string = ",\"status\":"
@@ -347,34 +343,14 @@ func easyjson5b12d0fdEncodeGithubComMhc18GoModels1(out *jwriter.Writer, in Accou
 		}
 	}
 	{
-		const prefix string = ",\"premium_start\":"
+		const prefix string = ",\"premium\":"
 		if first {
 			first = false
 			out.RawString(prefix[1:])
 		} else {
 			out.RawString(prefix)
 		}
-		out.Int32(int32(in.PremiumStart))
-	}
-	{
-		const prefix string = ",\"premium_finish\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int32(int32(in.PremiumFinish))
-	}
-	{
-		const prefix string = ",\"premium_active\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Bool(bool(in.PremiumActive))
+		easyjson5b12d0fdEncode(out, in.Premium)
 	}
 	{
 		const prefix string = ",\"likes\":"
@@ -405,25 +381,90 @@ func easyjson5b12d0fdEncodeGithubComMhc18GoModels1(out *jwriter.Writer, in Accou
 }
 
 // MarshalJSON supports json.Marshaler interface
-func (v AccountEntry) MarshalJSON() ([]byte, error) {
+func (v AccountFormEntry) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
 	easyjson5b12d0fdEncodeGithubComMhc18GoModels1(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
-func (v AccountEntry) MarshalEasyJSON(w *jwriter.Writer) {
+func (v AccountFormEntry) MarshalEasyJSON(w *jwriter.Writer) {
 	easyjson5b12d0fdEncodeGithubComMhc18GoModels1(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
-func (v *AccountEntry) UnmarshalJSON(data []byte) error {
+func (v *AccountFormEntry) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
 	easyjson5b12d0fdDecodeGithubComMhc18GoModels1(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
-func (v *AccountEntry) UnmarshalEasyJSON(l *jlexer.Lexer) {
+func (v *AccountFormEntry) UnmarshalEasyJSON(l *jlexer.Lexer) {
 	easyjson5b12d0fdDecodeGithubComMhc18GoModels1(l, v)
+}
+func easyjson5b12d0fdDecode(in *jlexer.Lexer, out *struct {
+	Start  uint32
+	Finish uint32
+}) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeString()
+		in.WantColon()
+		if in.IsNull() {
+			in.Skip()
+			in.WantComma()
+			continue
+		}
+		switch key {
+		case "start":
+			out.Start = uint32(in.Uint32())
+		case "finish":
+			out.Finish = uint32(in.Uint32())
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjson5b12d0fdEncode(out *jwriter.Writer, in struct {
+	Start  uint32
+	Finish uint32
+}) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"start\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Uint32(uint32(in.Start))
+	}
+	{
+		const prefix string = ",\"finish\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Uint32(uint32(in.Finish))
+	}
+	out.RawByte('}')
 }
