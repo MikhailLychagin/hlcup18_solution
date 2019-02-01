@@ -1,0 +1,13 @@
+{
+  "configurations": [
+    {
+      "name": "Debug app",
+      "mode": "debug",
+      "cwd": "${workspaceRoot}",
+      "host": "localhost",
+      "port": 2345,
+      "program": "${workspaceRoot}/app.go",
+      "showLog": true
+    }
+  ]
+}

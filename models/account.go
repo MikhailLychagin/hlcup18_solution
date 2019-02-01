@@ -6,6 +6,9 @@ type Like struct {
 	Ts int32
 }
 
+type AccountId = uint16
+type SmallId = uint8
+
 //easyjson:json
 type AccountFormEntry struct {
 	Id        *uint16   // required
@@ -28,18 +31,18 @@ type AccountFormEntry struct {
 }
 
 type AccountEntry struct {
-	Id            uint16
+	Id            AccountId
 	Email         string
 	Fname         string
 	Sname         string
 	Phone         string
 	Sex           uint8
 	Birth         uint32
-	Country       uint8
-	City          uint8
+	Country       SmallId
+	City          SmallId
 	Joined        uint32
-	Status        uint8
-	Interests     []uint8
+	Status        SmallId
+	Interests     []SmallId
 	PremiumStart  uint32
 	PremiumFinish uint32
 	PremiumActive bool

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"sort"
 )
 
@@ -14,7 +15,7 @@ func (e *ValueError) Error() string {
 }
 
 type DataManager struct {
-	Accounts     map[uint16]*AccountEntry
+	Accounts     map[AccountId]*AccountEntry
 	CountryToId  ReprToIdMap
 	IdToCountry  []*string
 	CityToId     ReprToIdMap
@@ -22,10 +23,14 @@ type DataManager struct {
 	InterestToId ReprToIdMap
 	IdToInterest []*string
 	CurrentDate  uint32
+	IndexManager IndexManager
 }
 
 func (dm *DataManager) AccountAdd(acc *AccountEntry) error {
 	dm.Accounts[acc.Id] = acc
+	if err := dm.UpdateIndexes(acc); err != nil {
+		fmt.Println(err)
+	}
 
 	return nil
 }
@@ -45,6 +50,31 @@ func (dm *DataManager) GetId(obj string, idsStorage ReprToIdMap) (uint8, error) 
 	}
 
 	return id, nil
+}
+
+func (dm *DataManager) UpdateIndexes(acc *AccountEntry) error {
+	if err := dm.IndexManager.AddFname(&(*acc).Fname, acc); err != nil {
+		fmt.Println(err)
+		return err
+	}
+	if err := dm.IndexManager.AddSname(&(*acc).Sname, acc); err != nil {
+		fmt.Println(err)
+		return err
+	}
+	if err := dm.IndexManager.AddPhoneCode(&(*acc).Sname, acc); err != nil {
+		fmt.Println(err)
+		return err
+	}
+	if err := dm.IndexManager.AddToIdToListIndex(&(*acc).City, acc, &dm.IndexManager.CityIdIdx); err != nil {
+		fmt.Println(err)
+		return err
+	}
+	if err := dm.IndexManager.AddToIdToListIndex(&(*acc).Country, acc, &dm.IndexManager.CountryIdIdx); err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	return nil
 }
 
 func (dm *DataManager) InterestsStrToId(arr []string, idsStorage ReprToIdMap) ([]uint8, error) {

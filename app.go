@@ -22,6 +22,7 @@ var (
 		InterestToId: make(models.ReprToIdMap, 1024),
 		IdToInterest: make([]*string, 1024),
 		CurrentDate:  1547753597,
+		IndexManager: *models.BuildDefaultIndexManager(),
 	}
 )
 
