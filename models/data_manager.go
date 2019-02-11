@@ -28,7 +28,7 @@ type DataManager struct {
 
 func (dm *DataManager) AccountAdd(acc *AccountEntry) error {
 	dm.Accounts[acc.Id] = acc
-	if err := dm.UpdateIndexes(acc); err != nil {
+	if err := dm.AddIndexes(acc); err != nil {
 		fmt.Println(err)
 	}
 
@@ -52,7 +52,7 @@ func (dm *DataManager) GetId(obj string, idsStorage ReprToIdMap) (uint8, error) 
 	return id, nil
 }
 
-func (dm *DataManager) UpdateIndexes(acc *AccountEntry) error {
+func (dm *DataManager) AddIndexes(acc *AccountEntry) error {
 	if err := dm.IndexManager.AddFname(&(*acc).Fname, acc); err != nil {
 		fmt.Println(err)
 		return err
@@ -70,6 +70,14 @@ func (dm *DataManager) UpdateIndexes(acc *AccountEntry) error {
 		return err
 	}
 	if err := dm.IndexManager.AddToIdToListIndex(&(*acc).Country, acc, &dm.IndexManager.CountryIdIdx); err != nil {
+		fmt.Println(err)
+		return err
+	}
+	if err := dm.IndexManager.AddSex(&(*acc).Sex, acc); err != nil {
+		fmt.Println(err)
+		return err
+	}
+	if err := dm.IndexManager.AddPremiumActive(&(*acc).PremiumActive, acc); err != nil {
 		fmt.Println(err)
 		return err
 	}

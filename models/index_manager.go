@@ -10,26 +10,27 @@ type IdToListIndex []*list.List
 type IndexManager struct {
 	FnameIdx            StrToListIndex
 	SnameIdx            StrToListIndex
-	PhoneCodeIdx        StrToListIndex
+	PhoneCodeIdx        IdToListIndex
 	CountryIdIdx        IdToListIndex
 	CityIdIdx           IdToListIndex
 	HaveInterestsIdsIdx IdToListIndex // i=Interest.Id
 	HaveLikeIdsIdx      IdToListIndex // i=AccountEntry.Id of likee, j=list of likers
-	HavePremiumIdx      []*AccountEntry
-	NoPremiumIdx        []*AccountEntry
-	SexMIdx             []*AccountEntry
+	PremiumActiveIdx    IdToListIndex // 0=no, 1=yes
+	SexIdx              IdToListIndex // 0=M, 1=F
 }
 
 func BuildDefaultIndexManager() *IndexManager {
 	var maxSmallId int = int(^SmallId(0)) + 1
 	im := IndexManager{
-		FnameIdx:            make(StrToListIndex),
-		SnameIdx:            make(StrToListIndex),
-		PhoneCodeIdx:        make(StrToListIndex),
+		FnameIdx:            make(StrToListIndex, 256),
+		SnameIdx:            make(StrToListIndex, 256),
+		PhoneCodeIdx:        make(IdToListIndex, 900), // codes are 3 digit 100 to 999
 		CountryIdIdx:        make(IdToListIndex, maxSmallId),
 		CityIdIdx:           make(IdToListIndex, maxSmallId),
 		HaveInterestsIdsIdx: make(IdToListIndex, maxSmallId),
 		HaveLikeIdsIdx:      make(IdToListIndex, maxSmallId),
+		PremiumActiveIdx:    make(IdToListIndex, 2),
+		SexIdx:              make(IdToListIndex, 2),
 	}
 	for i := range im.CountryIdIdx {
 		im.CountryIdIdx[i] = list.New()
@@ -41,6 +42,12 @@ func BuildDefaultIndexManager() *IndexManager {
 		im.CountryIdIdx[i] = list.New()
 	}
 	for i := range im.HaveLikeIdsIdx {
+		im.CountryIdIdx[i] = list.New()
+	}
+	for i := range im.PremiumActiveIdx {
+		im.CountryIdIdx[i] = list.New()
+	}
+	for i := range im.SexIdx {
 		im.CountryIdIdx[i] = list.New()
 	}
 
@@ -87,6 +94,22 @@ func (im *IndexManager) AddToStrToListIndex(indexingValue *string, acc *AccountE
 
 func (im *IndexManager) AddToIdToListIndex(indexingValue *SmallId, acc *AccountEntry, idx *IdToListIndex) error {
 	(*idx)[*indexingValue].PushFront(acc)
+
+	return nil
+}
+
+func (im *IndexManager) AddSex(value *uint8, acc *AccountEntry) error {
+	im.SexIdx[*value].PushFront(acc)
+
+	return nil
+}
+
+func (im *IndexManager) AddPremiumActive(value *bool, acc *AccountEntry) error {
+	if *value {
+		im.PremiumActiveIdx[1].PushFront(acc)
+	} else {
+		im.PremiumActiveIdx[0].PushFront(acc)
+	}
 
 	return nil
 }
