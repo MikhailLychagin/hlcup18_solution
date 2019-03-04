@@ -2,6 +2,9 @@ package models
 
 import (
 	"container/list"
+
+	"github.com/emirpasic/gods/trees/binaryheap"
+	"github.com/emirpasic/gods/utils"
 )
 
 type StrToListIndex map[string]*list.List
@@ -17,6 +20,21 @@ type IndexManager struct {
 	HaveLikeIdsIdx      IdToListIndex // i=AccountEntry.Id of likee, j=list of likers
 	PremiumActiveIdx    IdToListIndex // 0=no, 1=yes
 	SexIdx              IdToListIndex // 0=M, 1=F
+	EmailIxd            *binaryheap.Heap
+}
+
+type IndexEntry struct {
+	key   interface{}
+	value interface{}
+}
+
+type EmailIxdEntry struct {
+	key   *string
+	value *AccountEntry
+}
+
+func StringIndexEntryComparator(a, b interface{}) int {
+	return utils.StringComparator(a.(IndexEntry).key, b.(IndexEntry).key)
 }
 
 func BuildDefaultIndexManager() *IndexManager {
@@ -31,6 +49,7 @@ func BuildDefaultIndexManager() *IndexManager {
 		HaveLikeIdsIdx:      make(IdToListIndex, maxSmallId),
 		PremiumActiveIdx:    make(IdToListIndex, 2),
 		SexIdx:              make(IdToListIndex, 2),
+		EmailIxd:            binaryheap.NewWith(StringIndexEntryComparator),
 	}
 	for i := range im.CountryIdIdx {
 		im.CountryIdIdx[i] = list.New()
@@ -110,6 +129,12 @@ func (im *IndexManager) AddPremiumActive(value *bool, acc *AccountEntry) error {
 	} else {
 		im.PremiumActiveIdx[0].PushFront(acc)
 	}
+
+	return nil
+}
+
+func (im *IndexManager) AddEmail(value *string, acc *AccountEntry) error {
+	im.EmailIxd.Push(EmailIxdEntry{key: value, value: acc})
 
 	return nil
 }
