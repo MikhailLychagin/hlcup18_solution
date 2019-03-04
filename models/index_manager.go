@@ -2,6 +2,7 @@ package models
 
 import (
 	"container/list"
+	"strings"
 
 	"github.com/emirpasic/gods/trees/binaryheap"
 	"github.com/emirpasic/gods/utils"
@@ -21,6 +22,7 @@ type IndexManager struct {
 	PremiumActiveIdx    IdToListIndex // 0=no, 1=yes
 	SexIdx              IdToListIndex // 0=M, 1=F
 	EmailIxd            *binaryheap.Heap
+	DomainIxd           StrToListIndex
 }
 
 type IndexEntry struct {
@@ -50,6 +52,7 @@ func BuildDefaultIndexManager() *IndexManager {
 		PremiumActiveIdx:    make(IdToListIndex, 2),
 		SexIdx:              make(IdToListIndex, 2),
 		EmailIxd:            binaryheap.NewWith(StringIndexEntryComparator),
+		DomainIxd:           make(StrToListIndex, 256),
 	}
 	for i := range im.CountryIdIdx {
 		im.CountryIdIdx[i] = list.New()
@@ -135,6 +138,21 @@ func (im *IndexManager) AddPremiumActive(value *bool, acc *AccountEntry) error {
 
 func (im *IndexManager) AddEmail(value *string, acc *AccountEntry) error {
 	im.EmailIxd.Push(EmailIxdEntry{key: value, value: acc})
+
+	// Email domain index
+	separator_pos := strings.Index(*value, "@")
+	if separator_pos == -1 {
+		return &ValueError{"email missing @"}
+	}
+	for i := separator_pos + 1; i < len(*value); i++ {
+		if (*value)[i] == '.' {
+			domain := (*value)[separator_pos+1 : i]
+			if err := im.AddToStrToListIndex(&domain, acc, &im.DomainIxd); err != nil {
+				return err
+			}
+			break
+		}
+	}
 
 	return nil
 }
