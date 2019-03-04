@@ -58,19 +58,19 @@ func BuildDefaultIndexManager() *IndexManager {
 		im.CountryIdIdx[i] = list.New()
 	}
 	for i := range im.CityIdIdx {
-		im.CountryIdIdx[i] = list.New()
+		im.CityIdIdx[i] = list.New()
 	}
 	for i := range im.HaveInterestsIdsIdx {
-		im.CountryIdIdx[i] = list.New()
+		im.HaveInterestsIdsIdx[i] = list.New()
 	}
 	for i := range im.HaveLikeIdsIdx {
-		im.CountryIdIdx[i] = list.New()
+		im.HaveLikeIdsIdx[i] = list.New()
 	}
 	for i := range im.PremiumActiveIdx {
-		im.CountryIdIdx[i] = list.New()
+		im.PremiumActiveIdx[i] = list.New()
 	}
 	for i := range im.SexIdx {
-		im.CountryIdIdx[i] = list.New()
+		im.SexIdx[i] = list.New()
 	}
 
 	return &im
