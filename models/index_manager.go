@@ -2,6 +2,7 @@ package models
 
 import (
 	"container/list"
+	"log"
 	"strings"
 
 	"github.com/emirpasic/gods/trees/binaryheap"
@@ -11,10 +12,33 @@ import (
 type StrToListIndex map[string]*list.List
 type IdToListIndex []*list.List
 
+type IsNullIndex struct {
+	name           string
+	values         []*AccountEntry
+	pointerToEmpty int
+}
+
+func (idx IsNullIndex) Add(value *AccountEntry) {
+	idx.values[idx.pointerToEmpty] = value
+	idx.pointerToEmpty += 1
+	if idx.pointerToEmpty == len(idx.values) {
+		newCapacity := len(idx.values) + 10
+		log.Printf("Increasing size of %s from %d to %d", idx.name, len(idx.values), newCapacity)
+		old := idx.values
+		idx.values = make([]*AccountEntry, newCapacity)
+		copy(idx.values, old)
+	}
+}
+
+func NewIsNullIndex(capacity int, name string) *IsNullIndex {
+	return &IsNullIndex{name, make([]*AccountEntry, capacity), 0}
+}
+
 type IndexManager struct {
 	FnameIdx            StrToListIndex
 	SnameIdx            StrToListIndex
 	PhoneCodeIdx        IdToListIndex
+	PhoneNullIdx        *IsNullIndex
 	CountryIdIdx        IdToListIndex
 	CityIdIdx           IdToListIndex
 	HaveInterestsIdsIdx IdToListIndex // i=Interest.Id
@@ -72,6 +96,7 @@ func BuildDefaultIndexManager() *IndexManager {
 	for i := range im.SexIdx {
 		im.SexIdx[i] = list.New()
 	}
+	im.PhoneNullIdx = NewIsNullIndex(256, "PhoneNullIdx")
 
 	return &im
 }
@@ -153,6 +178,12 @@ func (im *IndexManager) AddEmail(value *string, acc *AccountEntry) error {
 			break
 		}
 	}
+
+	return nil
+}
+
+func (im *IndexManager) AddToIsNullIndex(acc *AccountEntry, idx *IsNullIndex) error {
+	idx.Add(acc)
 
 	return nil
 }

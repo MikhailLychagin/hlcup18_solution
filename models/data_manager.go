@@ -61,9 +61,16 @@ func (dm *DataManager) AddIndexes(acc *AccountEntry) error {
 		fmt.Println(err)
 		return err
 	}
-	if err := dm.IndexManager.AddPhoneCode(&(*acc).Sname, acc); err != nil {
-		fmt.Println(err)
-		return err
+	if (*acc).Phone == "" {
+		if err := dm.IndexManager.AddToIsNullIndex(acc, dm.IndexManager.PhoneNullIdx); err != nil {
+			fmt.Println(err)
+			return err
+		}
+	} else {
+		if err := dm.IndexManager.AddPhoneCode(&(*acc).Phone, acc); err != nil {
+			fmt.Println(err)
+			return err
+		}
 	}
 	if err := dm.IndexManager.AddToIdToListIndex(&(*acc).City, acc, &dm.IndexManager.CityIdIdx); err != nil {
 		fmt.Println(err)
